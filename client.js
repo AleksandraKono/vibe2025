@@ -1,140 +1,169 @@
-const API_URL = '';
-
-// Текущее редактируемое id (null, если ни один)
+const API = '';
+let token = null;
 let editingId = null;
 
-// Рендерит список: если editingId === item.id, рисуем row в режиме редактирования
-function renderList(data) {
-  const tbody = document.getElementById('listBody');
-  tbody.innerHTML = '';
+// UI
+const authModal  = document.getElementById('authModal');
+const authMsg    = document.getElementById('authMsg');
+const usernameEl = document.getElementById('username');
+const passwordEl = document.getElementById('password');
+const loginBtn   = document.getElementById('loginBtn');
+const registerBtn= document.getElementById('registerBtn');
 
-  data.forEach((item, index) => {
-    const row = document.createElement('tr');
-    row.setAttribute('data-id', item.id);
+const todoApp    = document.getElementById('todoApp');
+const logoutBtn  = document.getElementById('logoutBtn');
+const listBody   = document.getElementById('listBody');
+const newItemEl  = document.getElementById('newItem');
+const addBtn     = document.getElementById('addBtn');
 
-    if (editingId == item.id) {
-      // --- Режим редактирования этой строки ---
-      row.innerHTML = `
-        <td>${index + 1}</td>
+// Устанавливаем/снимаем токен
+function setToken(t) {
+  token = t;
+  if (token) {
+    localStorage.setItem('todoToken', token);
+    authModal.style.display = 'none';
+    todoApp.style.display = 'block';
+  } else {
+    localStorage.removeItem('todoToken');
+    authModal.style.display = '';
+    todoApp.style.display = 'none';
+  }
+}
+
+// Обёртка fetch, добавляет Authorization
+async function apiFetch(url, opts = {}) {
+  opts.headers = opts.headers || {};
+  if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+  const res = await fetch(API + url, opts);
+  if (res.status === 401) setToken(null);
+  return res;
+}
+
+// Авторизация/регистрация
+async function handleAuth(path) {
+  authMsg.textContent = '';
+  const username = usernameEl.value.trim();
+  const password = passwordEl.value.trim();
+  if (!username || !password) {
+    authMsg.textContent = 'Both fields required';
+    return;
+  }
+  const res = await apiFetch(`/${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+  const data = await res.json();
+  if (path === 'login' && res.ok && data.token) {
+    setToken(data.token);
+    await fetchList();
+  } else if (path === 'register' && res.ok) {
+    authMsg.style.color = 'green';
+    authMsg.textContent = 'Registered! Now login.';
+  } else {
+    authMsg.style.color = 'red';
+    authMsg.textContent = data.error || 'Error';
+  }
+}
+
+loginBtn.addEventListener('click',    () => handleAuth('login'));
+registerBtn.addEventListener('click', () => handleAuth('register'));
+logoutBtn.addEventListener('click',   () => setToken(null));
+
+// Рендер списка с inline‑редактированием
+function renderList(items) {
+  listBody.innerHTML = '';
+  items.forEach((item, idx) => {
+    const tr = document.createElement('tr');
+    tr.dataset.id = item.id;
+
+    if (editingId === item.id) {
+      tr.innerHTML = `
+        <td>${idx+1}</td>
+        <td><input class="edit-input" value="${item.text}"></td>
         <td>
-          <input type="text" class="edit-input" value="${item.text}" />
-        </td>
-        <td>
-          <button class="save-btn" data-id="${item.id}">Save</button>
+          <button class="save-btn">Save</button>
           <button class="cancel-btn">Cancel</button>
-        </td>
-      `;
+        </td>`;
     } else {
-      // --- Обычный режим вывода ---
-      row.innerHTML = `
-        <td>${index + 1}</td>
+      tr.innerHTML = `
+        <td>${idx+1}</td>
         <td>${item.text}</td>
         <td>
-          <button class="edit-btn" data-id="${item.id}">Edit</button>
-          <button class="remove-btn" data-id="${item.id}">Remove</button>
-        </td>
-      `;
+          <button class="edit-btn">Edit</button>
+          <button class="delete-btn">Delete</button>
+        </td>`;
     }
-
-    tbody.appendChild(row);
+    listBody.appendChild(tr);
   });
 
-  // Навешиваем handler’ы:
-  // 1) Remove
-  document.querySelectorAll('.remove-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const id = e.target.dataset.id;
-      try {
-        const resp = await fetch(`${API_URL}/delete/${id}`, { method: 'DELETE' });
-        if (!resp.ok) throw new Error('Ошибка при удалении');
-        await fetchList();
-      } catch (err) {
-        console.error(err);
-      }
-    });
-  });
+  // Delete
+  document.querySelectorAll('.delete-btn').forEach(b =>
+    b.onclick = async () => {
+      const id = b.closest('tr').dataset.id;
+      await apiFetch(`/items/${id}`, { method: 'DELETE' });
+      fetchList();
+    }
+  );
 
-  // 2) Edit → устанавливаем editingId и перерисовываем
-document.querySelectorAll('.edit-btn').forEach(btn => {
-  btn.addEventListener('click', (e) => {
-    editingId = Number(e.target.dataset.id); // преобразуем к числу
-    console.log('Editing id set to', editingId);
-    fetchList();
-  });
-});
+  // Edit
+  document.querySelectorAll('.edit-btn').forEach(b =>
+    b.onclick = () => {
+      editingId = Number(b.closest('tr').dataset.id);
+      fetchList();
+    }
+  );
 
-  // 3) Save (только те, что в режиме редактирования)
-  document.querySelectorAll('.save-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const id = e.target.dataset.id;
-      // Находим <input> в той же строке:
-      const input = document.querySelector(`tr[data-id="${id}"] .edit-input`);
-      const newText = input.value.trim();
-      if (!newText) {
-        editingId = null;
-        fetchList();
-        return;
-      }
-      try {
-        const resp = await fetch(`${API_URL}/edit/${id}`, {
+  // Save
+  document.querySelectorAll('.save-btn').forEach(b =>
+    b.onclick = async () => {
+      const tr = b.closest('tr');
+      const id = tr.dataset.id;
+      const text = tr.querySelector('.edit-input').value.trim();
+      if (text) {
+        await apiFetch(`/items/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: newText })
+          body: JSON.stringify({ text })
         });
-        if (!resp.ok) throw new Error('Ошибка при сохранении');
-        editingId = null;
-        await fetchList();
-      } catch (err) {
-        console.error(err);
       }
-    });
-  });
-
-  // 4) Cancel (также только в режиме редактирования)
-  document.querySelectorAll('.cancel-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
       editingId = null;
       fetchList();
-    });
-  });
+    }
+  );
+
+  // Cancel
+  document.querySelectorAll('.cancel-btn').forEach(b =>
+    b.onclick = () => {
+      editingId = null;
+      fetchList();
+    }
+  );
 }
 
-// Получение списка (GET /list)
+// Загрузить и отобразить список
 async function fetchList() {
-  try {
-    const resp = await fetch(`${API_URL}/list`);
-    if (!resp.ok) throw new Error('Ошибка при загрузке списка');
-    const data = await resp.json();
-    renderList(data);
-  } catch (err) {
-    console.error(err);
-  }
+  const res = await apiFetch('/items');
+  if (!res.ok) return;
+  const items = await res.json();
+  renderList(items);
 }
 
-// Добавление нового элемента (POST /add)
-async function addItem() {
-  const input = document.getElementById('newItem');
-  const text = input.value.trim();
+// Добавить
+addBtn.onclick = async () => {
+  const text = newItemEl.value.trim();
   if (!text) return;
-  try {
-    const resp = await fetch(`${API_URL}/add`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
-    });
-    if (!resp.ok) throw new Error('Ошибка при добавлении');
-    input.value = '';
-    await fetchList();
-  } catch (err) {
-    console.error(err);
-  }
-}
+  await apiFetch('/items', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text })
+  });
+  newItemEl.value = '';
+  fetchList();
+};
 
-// Привязываем Add btn и Enter
-document.getElementById('addBtn').addEventListener('click', addItem);
-document.getElementById('newItem').addEventListener('keyup', e => {
-  if (e.key === 'Enter') addItem();
-});
-
-// Loader initial
-window.addEventListener('DOMContentLoaded', fetchList);
+// Инициализация при загрузке
+window.onload = () => {
+  const saved = localStorage.getItem('todoToken');
+  if (saved) setToken(saved), fetchList();
+};

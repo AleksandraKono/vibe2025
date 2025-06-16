@@ -1,69 +1,99 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>To-Do List</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-        }
-        #todoList {
-            border-collapse: collapse;
-            width: 70%;
-            margin: 0 auto;
-        }
-        #todoList th, #todoList td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        #todoList th {
-            background-color: #f0f0f0;
-        }
-        #todoList th:first-child, #todoList th:last-child {
-            width: 5%;
-        }
-        #todoList th:nth-child(2) {
-            width: 90%;
-        }
-        .add-form {
-            margin-top: 20px;
-            width: 70%;
-            margin: 20px auto;
-        }
-        .add-form input[type="text"] {
-            padding: 8px;
-            width: 70%;
-        }
-        .add-form button {
-            padding: 8px;
-            width: 20%;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>To‑Do List with Auth</title>
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; background: #f5f5f5; }
+    #authModal {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: white; padding: 2em;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      width: 300px; text-align: center;
+    }
+    #authModal input {
+      width: 100%; padding: 8px; margin: 0.5em 0;
+    }
+    #authModal button {
+      padding: 8px 16px; margin: 0.5em;
+    }
+    #todoApp {
+      display: none; max-width: 800px; margin: 2em auto;
+    }
+    table#todoList {
+      width: 100%; border-collapse: collapse; margin-bottom: 1em;
+    }
+    /* Общие ячейки */
+    #todoList th, #todoList td {
+      border: 1px solid #ddd; padding: 8px; text-align: left;
+    }
+    /* Заголовки */
+    #todoList th {
+      background: #eee;
+    }
+    /* Ширины столбцов */
+    #todoList th:nth-child(1),
+    #todoList td:nth-child(1) {
+      width: 5%;
+    }
+    #todoList th:nth-child(2),
+    #todoList td:nth-child(2) {
+      width: 75%;
+    }
+    #todoList th:nth-child(3),
+    #todoList td:nth-child(3) {
+      width: 20%;
+      white-space: nowrap;
+    }
+    .add-form {
+      display: flex;
+    }
+    .add-form input {
+      flex: 1; padding: 8px;
+    }
+    .add-form button {
+      padding: 8px 16px; margin-left: 8px;
+    }
+  </style>
 </head>
 <body>
 
-<h2 style="text-align: center;">To-Do List</h2>
+  <!-- Модальное окно аутентификации -->
+  <div id="authModal">
+    <h3>Sign In / Register</h3>
+    <input type="text" id="username" placeholder="Username">
+    <input type="password" id="password" placeholder="Password">
+    <div>
+      <button id="loginBtn">Login</button>
+      <button id="registerBtn">Register</button>
+    </div>
+    <p id="authMsg" style="color:red;"></p>
+  </div>
 
-<table id="todoList">
-    <thead>
+  <!-- Основное приложение, скрыто до авторизации -->
+  <div id="todoApp">
+    <h2 style="text-align:center;">To‑Do List</h2>
+    <button id="logoutBtn">Logout</button>
+
+    <table id="todoList">
+      <thead>
         <tr>
-            <th>Number</th>
-            <th>Text</th>
-            <th>Action</th>
+          <th>№</th>
+          <th>To‑Do</th>
+          <th>Action</th>
         </tr>
-    </thead>
-    <tbody id="listBody">
-    </tbody>
-</table>
+      </thead>
+      <tbody id="listBody"></tbody>
+    </table>
 
-<div class="add-form">
-    <input type="text" id="newItem" placeholder="Enter new item">
-    <button id="addBtn">Add</button>
-</div>
+    <div class="add-form">
+      <input type="text" id="newItem" placeholder="Enter new item">
+      <button id="addBtn">Add</button>
+    </div>
+  </div>
 
-
-<script src="client.js"></script>
+  <script src="client.js"></script>
 </body>
 </html>
