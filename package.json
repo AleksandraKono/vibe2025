@@ -1,5 +1,10 @@
 {
+  "scripts": {
+    "start": "node index.js"
+  },
   "dependencies": {
-    "mysql2": "^3.14.0"
+    "express": "^4.x",
+    "dotenv": "^16.x",
+    "mysql2": "^3.x"
   }
 }
