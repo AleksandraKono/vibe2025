@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3000';
+const API_URL = '';
 
 // Текущее редактируемое id (null, если ни один)
 let editingId = null;
