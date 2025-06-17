@@ -171,11 +171,25 @@ bot.on('message', async msg => {
 
     // Удаление задачи
     if (text === '❌ Delete Task') {
-      if (!session.token) return bot.sendMessage(chatId, 'Please login first.', mainKeyboard);
-      if (!session.lastItems?.length) return bot.sendMessage(chatId, 'Fetch your list first (📋 My To-Do List).', mainKeyboard);
-      session.state = 'delete_ask_id';
-      return bot.sendMessage(chatId, 'Enter task number to delete:');
-    }
+  if (!session.token) return bot.sendMessage(chatId, 'Please login first.', mainKeyboard);
+  try {
+    const resp = await axios.get(`${API}/items`, {
+      headers: { Authorization: `Bearer ${session.token}` }
+    });
+    const items = resp.data;
+    if (!items.length) return bot.sendMessage(chatId, 'Your list is empty.', mainKeyboard);
+
+    session.lastItems = items;
+    session.state = 'delete_ask_id';
+
+    const list = items.map((it, i) => `${i + 1}. ${it.text}`).join('\n');
+    return bot.sendMessage(chatId, `Your To-Do:\n${list}\n\nEnter task number to delete:`);
+  } catch (err) {
+    const e = err.response?.data.error || err.message;
+    return bot.sendMessage(chatId, 'Error fetching list: ' + e, mainKeyboard);
+  }
+}
+
     if (session.state === 'delete_ask_id') {
       const idx = parseInt(text.trim(), 10) - 1;
       if (isNaN(idx) || !session.lastItems[idx]) {
