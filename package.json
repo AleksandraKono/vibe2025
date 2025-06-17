@@ -1,12 +1,19 @@
 {
+  "name": "vibe2025",
+  "version": "1.0.0",
+  "description": "To‑Do List with Auth and Telegram Bot",
+  "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "bot": "node bot.js"
   },
   "dependencies": {
-    "bcrypt": "^6.0.0",
-    "dotenv": "^16.x",
     "express": "^4.x",
-    "jsonwebtoken": "^9.0.2",
-    "mysql2": "^3.x"
+    "dotenv": "^16.x",
+    "mysql2": "^3.x",
+    "bcrypt": "^6.0.0",
+    "jsonwebtoken": "^9.2.0",
+    "node-telegram-bot-api": "^0.61.0",
+    "axios": "^1.5.0"
   }
 }
