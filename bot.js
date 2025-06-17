@@ -4,12 +4,14 @@ const axios = require('axios');
 
 // Инициализация бота
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
+// Базовый URL API (по умолчанию localhost)
+const API = process.env.API_URL || 'http://localhost:3000';
 
 // Сессии
 const sessions = new Map();
 function getSession(chatId) {
   if (!sessions.has(chatId)) {
-    sessions.set(chatId, { state: 'idle', temp: {}, token: null });
+    sessions.set(chatId, { state: 'idle', temp: {}, token: null, lastItems: [] });
   }
   return sessions.get(chatId);
 }
@@ -31,8 +33,7 @@ const mainKeyboard = {
 bot.onText(/\/start/, msg => {
   const chatId = msg.chat.id;
   const session = getSession(chatId);
-  session.state = 'idle'; session.temp = {}; session.token = null;
-  session.lastItems = [];
+  session.state = 'idle'; session.temp = {}; session.token = null; session.lastItems = [];
   bot.sendMessage(chatId, 'Welcome! Choose an action:', mainKeyboard);
 });
 
@@ -49,7 +50,7 @@ bot.on('message', async msg => {
       return bot.sendMessage(chatId, 'You have been logged out.', mainKeyboard);
     }
 
-    // Registration
+    // Регистрация
     if (text === '🆕 Register') {
       session.state = 'register_username'; session.temp = {};
       return bot.sendMessage(chatId, 'Enter new username:');
@@ -63,7 +64,7 @@ bot.on('message', async msg => {
       const { username } = session.temp;
       const password = text.trim();
       try {
-        await axios.post(`${process.env.API_URL}/register`, { username, password });
+        await axios.post(`${API}/register`, { username, password });
         session.state = 'idle'; session.temp = {};
         return bot.sendMessage(chatId, 'Registration successful! Please login.', mainKeyboard);
       } catch (err) {
@@ -86,7 +87,7 @@ bot.on('message', async msg => {
       const { username } = session.temp;
       const password = text.trim();
       try {
-        const resp = await axios.post(`${process.env.API_URL}/login`, { username, password });
+        const resp = await axios.post(`${API}/login`, { username, password });
         session.token = resp.data.token;
         session.state = 'idle'; session.temp = {};
         return bot.sendMessage(chatId, 'Login successful.', mainKeyboard);
@@ -96,13 +97,15 @@ bot.on('message', async msg => {
       }
     }
 
-    // View list
+    // Показ списка
     if (text === '📋 My To-Do List') {
       if (!session.token) return bot.sendMessage(chatId, 'Please login first.', mainKeyboard);
       try {
-        const resp = await axios.get(`${process.env.API_URL}/items`, { headers: { Authorization: `Bearer ${session.token}` } });
+        const resp = await axios.get(`${API}/items`, {
+          headers: { Authorization: `Bearer ${session.token}` }
+        });
         const items = resp.data;
-        session.lastItems = items;              // сохраняем для последующего редактирования
+        session.lastItems = items;
         if (!items.length) {
           return bot.sendMessage(chatId, 'Your list is empty.', mainKeyboard);
         }
@@ -114,7 +117,7 @@ bot.on('message', async msg => {
       }
     }
 
-    // Add task
+    // Добавление задачи
     if (text === '➕ Add Task') {
       if (!session.token) return bot.sendMessage(chatId, 'Please login first.', mainKeyboard);
       session.state = 'add_task';
@@ -123,7 +126,9 @@ bot.on('message', async msg => {
     if (session.state === 'add_task') {
       const textTask = text.trim();
       try {
-        await axios.post(`${process.env.API_URL}/items`, { text: textTask }, { headers: { Authorization: `Bearer ${session.token}` } });
+        await axios.post(`${API}/items`, { text: textTask }, {
+          headers: { Authorization: `Bearer ${session.token}` }
+        });
         session.state = 'idle';
         return bot.sendMessage(chatId, 'Task added.', mainKeyboard);
       } catch (err) {
@@ -132,7 +137,7 @@ bot.on('message', async msg => {
       }
     }
 
-    // Edit task
+    // Редактирование задачи
     if (text === '✏️ Edit Task') {
       if (!session.token) return bot.sendMessage(chatId, 'Please login first.', mainKeyboard);
       if (!session.lastItems?.length) return bot.sendMessage(chatId, 'Fetch your list first (📋 My To-Do List).', mainKeyboard);
@@ -145,7 +150,7 @@ bot.on('message', async msg => {
         session.state = 'idle';
         return bot.sendMessage(chatId, 'Invalid task number.', mainKeyboard);
       }
-      session.temp.id = session.lastItems[idx].id;  // реальный id из БД
+      session.temp.id = session.lastItems[idx].id;
       session.state = 'edit_ask_text';
       return bot.sendMessage(chatId, 'Enter new text:');
     }
@@ -153,7 +158,9 @@ bot.on('message', async msg => {
       const id = session.temp.id;
       const newText = text.trim();
       try {
-        await axios.put(`${process.env.API_URL}/items/${id}`, { text: newText }, { headers: { Authorization: `Bearer ${session.token}` } });
+        await axios.put(`${API}/items/${id}`, { text: newText }, {
+          headers: { Authorization: `Bearer ${session.token}` }
+        });
         session.state = 'idle'; session.temp = {};
         return bot.sendMessage(chatId, 'Task edited.', mainKeyboard);
       } catch (err) {
@@ -162,7 +169,7 @@ bot.on('message', async msg => {
       }
     }
 
-    // Delete task
+    // Удаление задачи
     if (text === '❌ Delete Task') {
       if (!session.token) return bot.sendMessage(chatId, 'Please login first.', mainKeyboard);
       if (!session.lastItems?.length) return bot.sendMessage(chatId, 'Fetch your list first (📋 My To-Do List).', mainKeyboard);
@@ -177,7 +184,9 @@ bot.on('message', async msg => {
       }
       const id = session.lastItems[idx].id;
       try {
-        await axios.delete(`${process.env.API_URL}/items/${id}`, { headers: { Authorization: `Bearer ${session.token}` } });
+        await axios.delete(`${API}/items/${id}`, {
+          headers: { Authorization: `Bearer ${session.token}` }
+        });
         session.state = 'idle'; session.temp = {};
         return bot.sendMessage(chatId, 'Task deleted.', mainKeyboard);
       } catch (err) {
